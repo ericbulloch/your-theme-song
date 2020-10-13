@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Your Theme Song</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="client">
+      <h1>Who are you?</h1>
+      <div class="alert alert-success" role="alert">
+        This is the first time I have seen you today. Hello Eric!
+      </div>
+      <div class="alert alert-secondary" role="alert">
+        I have already seen Eric today!
+      </div>
+      <video id="player" class="hidden" controls autoplay></video>
+      <button id="getStarted" class="btn btn-primary">Get Started</button>
+      <canvas id="canvas" class="hidden" width=320 height=240></canvas>
+    </div>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='client.js') }}"></script>
+  </body>
+</html>

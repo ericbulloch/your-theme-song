@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Your Theme Song</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='roboto.css') }}">
+  </head>
+  <body>
+    <div id="root">
+      <div class="input-form">
+        <div class="form-group">
+          <label>Name</label>
+          <input id="name" class="form-control" value="" />
+          <small id="name-error" class="text-danger"></small>
+        </div>
+        <div class="form-group hidden">
+          <label>E-mail</label>
+          <input id="email" class="form-control" value="ericbulloch@gmail.com" />
+          <small id="email-error" class="text-danger"></small>
+        </div>
+        <div class="form-group hidden">
+          <label>Password</label>
+          <input id="password" class="form-control" value="python" type="password" />
+          <small id="password-error" class="text-danger"></small>
+        </div>
+      </div>
+      <div class="camera">
+        <p>Please let us take your picture</p>
+        <video id="player" class="hidden" width=640 height=480 autoplay></video>
+        <canvas id="canvas" class="hidden" width=640 height=480></canvas>
+        <button id="get-started" class="btn btn-secondary">ALLOW CAMERA</button>
+        <button id="take-picture" class="btn btn-secondary hidden">TAKE PICTURE</button>
+        <div id="after-photo" class="hidden">
+          <button id="keep-picture" class="btn btn-secondary">KEEP PICTURE</button>
+          <button id="another-picture" class="btn btn-secondary">TAKE ANOTHER</button>
+        </div>
+        <small id="photo-error" class="text-danger"></small>
+      </div>
+      <div class="songs">
+        <div class="form-group">
+          <p id="selected-song-output"></p>
+          <label>Search Artist and Track</label>
+          <small id="song-error" class="text-danger"></small>
+          <div class="search-row">
+            <input id="search-field" class="form-control" />
+            <button id="search-button" class="btn btn-secondary">SEARCH</button>
+          </div>
+        </div>
+        <div id="song-results"></div>
+      </div>
+      <div class="save">
+        <button id="save-button" class="btn btn-primary">SAVE</button>
+      </div>
+    </div>
+    <template id="t-song-result">
+      <div class="card">
+        <div class="card-body">
+          <p class="card-title"></p>
+          <p class="card-subtitle"></p>
+          <p class="card-text"></p>
+          <button class="btn btn-secondary card-select-button">SELECT</button>
+        </div>
+      </div>
+    </template>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='site.js') }}"></script>
+  </body>
+</html>
