@@ -128,8 +128,6 @@ class UserState(rx.State):
 
 
 class State(rx.State):
-    last_screenshot: Image.Image | None = None
-    last_screenshot_timestamp: str = ""
     loading: bool = False
     user: dict | None = None
     create_profile: bool = False
@@ -137,12 +135,8 @@ class State(rx.State):
     def handle_screenshot(self, img_data_uri: str):
         if self.loading:
             return
-        self.last_screenshot_timestamp = time.strftime("%H:%M:%S")
         self.create_profile = False
         with urlopen(img_data_uri) as img:
-            self.last_screenshot = Image.open(img)
-            self.last_screenshot.load()
-            self.last_screenshot.format = "WEBP"
             self.user = None
             image = face_recognition.load_image_file(img)
             face_locations = face_recognition.face_locations(image)
