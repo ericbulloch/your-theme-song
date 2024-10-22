@@ -116,7 +116,6 @@ class State(rx.State):
     create_profile: bool = False
 
     def handle_screenshot(self, img_data_uri: str):
-        print('handle_screenshot', img_data_uri)
         if self.loading:
             return
         self.last_screenshot_timestamp = time.strftime("%H:%M:%S")
