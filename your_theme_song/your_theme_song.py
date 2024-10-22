@@ -27,7 +27,7 @@ class UserState(rx.State):
     loading: bool = False
     last_screenshot: Image.Image | None = None
     screenshot: Image.Image | None = None
-    search_results: List[dict] = []
+    search_results: List[dict[str, str]] = []
     error_message: str = ""
 
     def handle_submit(self):
@@ -160,14 +160,18 @@ def render_search_result(item: dict[str, str]):
     return rx.hstack(
         rx.text(item.artist),
         rx.text(item.title),
-        rx.text(item.url),
+        rx.audio(
+            url=item.url,
+            width="150px",
+            height="32px",
+        )
     )
 
 
 def render_search_results(search_results: List[dict]) -> rx.Component:
     return rx.vstack(
         rx.text('Search Results'),
-        rx.list(
+        rx.vstack(
             rx.foreach(
                 search_results, render_search_result
             )
