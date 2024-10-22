@@ -24,6 +24,7 @@ class UserState(rx.State):
     song_title: str = ""
     song_url: str = ""
     search: str = ""
+    search_loading: bool = False
     state: str = "form"
     loading: bool = False
     last_screenshot: Image.Image | None = None
@@ -52,6 +53,7 @@ class UserState(rx.State):
             image = face_recognition.load_image_file(img)
             face_locations = face_recognition.face_locations(image)
             self.error_message = ""
+            yield
             if face_locations:
                 unknown_encoding = face_recognition.face_encodings(image)[0]
                 found = False
@@ -67,6 +69,8 @@ class UserState(rx.State):
                     self.last_screenshot = Image.open(img)
                     self.last_screenshot.load()
                     self.last_screenshot.format = "WEBP"
+            else:
+                self.error_message = "Could not recognize your face"
     
     def handle_accept_image(self):
         if not self.last_screenshot:
@@ -78,18 +82,25 @@ class UserState(rx.State):
     def handle_search(self):
         if not self.search:
             return
+        self.search_loading = True
+        yield
         with deezer.Client() as client:
             self.search_results = []
             results = client.search(self.search)
-            print('results', results)
             for result in results:
                 self.search_results.append(dict(title=result.title, url=result.preview, artist=result.artist.name))
+            self.search_loading = False
     
     def handle_select_song(self, song: dict[str, str]):
         self.search = ''
         self.song_artist = song['artist']
         self.song_title = song['title']
         self.song_url = song['url']
+        self.search_results = []
+        self.state = 'form'
+    
+    def handle_cancel_select_song(self):
+        self.search = ''
         self.search_results = []
         self.state = 'form'
     
@@ -139,22 +150,15 @@ def last_screenshot_widget(last_screenshot: Image.Image | None) -> rx.Component:
             rx.fragment(
                 rx.image(src=last_screenshot),
             ),
-            rx.center(
-                rx.text("Click image to capture.", size="4"),
-            ),
         ),
         height="45vh",
     )
 
 
-def webcam_upload_component(ref: str, handler) -> rx.Component:
+def webcam_upload_component(ref: str) -> rx.Component:
     return rx.vstack(
         reflex_webcam.webcam(
             id=ref,
-            on_click=reflex_webcam.upload_screenshot(
-                ref=ref,
-                handler=handler,
-            ),
         ),
         width="45vh",
         align="center",
@@ -164,27 +168,25 @@ def webcam_upload_component(ref: str, handler) -> rx.Component:
 def render_search_result(item: dict[str, str]):
     return rx.hstack(
         rx.button(
-            "Select song",
+            "This one",
             on_click=lambda: UserState.handle_select_song(item),
             background_color="green",
+            height="32px",
         ),
-        rx.text(item.artist),
-        rx.text(item.title),
         rx.audio(
             url=item.url,
             width="150px",
             height="32px",
         ),
+        rx.text(f'{item.title} by {item.artist}'),
     )
 
 
 def render_search_results(search_results: List[dict]) -> rx.Component:
     return rx.vstack(
-        rx.text('Search Results'),
-        rx.vstack(
-            rx.foreach(
-                search_results, render_search_result
-            )
+        rx.foreach(
+            search_results,
+            render_search_result,
         )
     )
 
@@ -204,7 +206,7 @@ def create() -> rx.Component:
         rx.cond(
             UserState.state == 'form',
             rx.vstack(
-                rx.heading("Create Your Theme Song!", size="9"),
+                rx.heading("Create Your Theme Song", size="9"),
                 rx.cond(
                     UserState.error_message,
                     render_error_message(UserState.error_message),
@@ -239,7 +241,7 @@ def create() -> rx.Component:
                     ),
                     rx.cond(
                         UserState.song_title,
-                        rx.text(UserState.song_title),
+                        rx.text(f'{UserState.song_title} by {UserState.song_artist}'),
                     ),
                 ),
                 rx.button(
@@ -251,24 +253,38 @@ def create() -> rx.Component:
         rx.cond(
             UserState.state == 'picture',
             rx.vstack(
-                rx.heading("Take a picture!", size="9"),
+                rx.heading("Take a Picture", size="9"),
                 rx.cond(
                     UserState.error_message,
                     render_error_message(UserState.error_message),
                 ),
                 rx.hstack(
-                    webcam_upload_component("picture", UserState.handle_take_picture),
+                    webcam_upload_component("picture"),
                     last_screenshot_widget(UserState.last_screenshot),
                 ),
                 rx.hstack(
-                    rx.button(
-                        "Cancel",
-                        on_click=UserState.handle_cancel,
+                    rx.stack(
+                        rx.button(
+                            "Cancel",
+                            on_click=UserState.handle_cancel,
+                        ),
+                        rx.button(
+                            "Accept",
+                            disable=UserState.last_screenshot,
+                            on_click=UserState.handle_accept_image,
+                        ),
+                        width="25vh",
                     ),
-                    rx.button(
-                        "Accept",
-                        disable=UserState.last_screenshot,
-                        on_click=UserState.handle_accept_image,
+                    rx.stack(
+                        rx.button(
+                            "Take my picture",
+                            on_click=reflex_webcam.upload_screenshot(
+                                ref="picture",
+                                handler=UserState.handle_take_picture,
+                            ),
+                        ),
+                        width="65vh",
+                        justify='end',
                     )
                 ),
             ),
@@ -276,7 +292,7 @@ def create() -> rx.Component:
         rx.cond(
             UserState.state == 'song',
             rx.vstack(
-                rx.heading("Pick a song!", size="9"),
+                rx.heading("Pick Your Theme Song", size="9"),
                 rx.cond(
                     UserState.error_message,
                     render_error_message(UserState.error_message),
@@ -293,12 +309,16 @@ def create() -> rx.Component:
                     ),
                 ),
                 rx.cond(
-                    UserState.search_results,
-                    render_search_results(UserState.search_results),
+                    UserState.search_loading,
+                    rx.text('Searching...'),
+                    rx.cond(
+                        UserState.search_results,
+                        render_search_results(UserState.search_results),
+                    ),
                 ),
                 rx.button(
                     "Cancel",
-                    on_click=UserState.handle_cancel,
+                    on_click=UserState.handle_cancel_select_song,
                 )
             ),
         )
@@ -314,7 +334,7 @@ def index() -> rx.Component:
                 rx.cond(
                     State.user,
                     rx.text(f"Hey {State.user['name']}! Playing your theme song: {State.user['song_title']}", size="5"),
-                    rx.text("Come up to the camera to play your song!", size="5")
+                    rx.text("Come up to the camera to play your song", size="5")
                 ),
                 rx.cond(
                     State.create_profile,
@@ -325,7 +345,8 @@ def index() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                webcam_upload_component("123", State.handle_screenshot),
+                # webcam_upload_component("123", State.handle_screenshot),
+                webcam_upload_component("123"),
                 last_screenshot_widget(State.last_screenshot),
             ),
             justify="center",
