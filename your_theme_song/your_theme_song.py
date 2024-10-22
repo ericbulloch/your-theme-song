@@ -151,7 +151,7 @@ class State(rx.State):
                     known_encoding = face_recognition.face_encodings(known_image)[0]
                     results = face_recognition.compare_faces([known_encoding], unknown_encoding)
                     if results[0]:
-                        self.user = dict(name=user.name, song_title=user.song_title)
+                        self.user = dict(name=user.name, song_title=user.song_title, song_url=user.song_url, song_artist=user.song_artist)
                         found = True
                         break
                 if not found:
@@ -365,10 +365,19 @@ def index() -> rx.Component:
                 webcam_upload_component("123"),
             ),
             rx.button(
-                "Hmmm...",
+                "Test image recognition",
                 on_click=reflex_webcam.upload_screenshot(
                     ref="123",
                     handler=State.handle_screenshot,
+                ),
+            ),
+            rx.cond(
+                State.user,
+                rx.audio(
+                    url=f"{State.user['song_url']} ",
+                    playing=True,
+                    width="1px",
+                    height="1px",
                 ),
             ),
             align='center',
