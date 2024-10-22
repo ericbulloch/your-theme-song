@@ -1,8 +1,8 @@
-"""'Initial'
+"""empty message
 
-Revision ID: fe7f448ddb6b
+Revision ID: 97201884a63f
 Revises: 
-Create Date: 2024-10-19 13:08:28.720664
+Create Date: 2024-10-22 02:21:58.422031
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = 'fe7f448ddb6b'
+revision: str = '97201884a63f'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -23,6 +23,7 @@ def upgrade() -> None:
     op.create_table('user',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('song_artist', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('song_title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('song_url', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('screenshot_url', sqlmodel.sql.sqltypes.AutoString(), nullable=False),

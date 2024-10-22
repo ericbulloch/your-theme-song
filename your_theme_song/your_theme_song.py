@@ -3,6 +3,7 @@ import glob
 import time
 from typing import List
 from urllib.request import urlopen
+import uuid
 
 import deezer
 import face_recognition
@@ -13,6 +14,7 @@ import reflex_webcam
 
 class User(rx.Model, table=True):
     name: str
+    song_artist: str
     song_title: str
     song_url: str
     screenshot_url: str
@@ -33,12 +35,29 @@ class UserState(rx.State):
     error_message: str = ""
 
     def handle_submit(self):
-        print('Clicked submit')
-        print(self.last_screenshot)
-        print(self.name)
-        print(self.song_artist)
-        print(self.song_title)
-        print(self.song_url)
+        image_name = f'{uuid.uuid4().hex}.jpg'
+        image_path = f'images/{image_name}'
+        self.screenshot.save(f'images/{image_name}', 'JPEG')
+        with rx.session() as session:
+            session.add(
+                User(
+                    name=self.name,
+                    song_artist=self.song_artist,
+                    song_title=self.song_title,
+                    song_url=self.song_url,
+                    screenshot_url=image_path,
+                )
+            )
+            session.commit()
+        self.name = ''
+        self.search = ''
+        self.song_artist = ''
+        self.song_title = ''
+        self.song_url = ''
+        self.last_screenshot = None
+        self.screenshot = None
+        self.search_results = []
+        return rx.redirect('/')
     
     def handle_open_picture_form(self):
         self.state = 'picture'
@@ -130,16 +149,21 @@ class State(rx.State):
             if face_locations:
                 unknown_encoding = face_recognition.face_encodings(image)[0]
                 found = False
-                for known_image_path in glob.glob('images/*.jpg'):
-                    known_image = face_recognition.load_image_file(known_image_path)
+                with rx.session() as session:
+                    users = session.exec(User.select()).all()
+
+                for user in users:
+                    known_image = face_recognition.load_image_file(user.screenshot_url)
                     known_encoding = face_recognition.face_encodings(known_image)[0]
                     results = face_recognition.compare_faces([known_encoding], unknown_encoding)
                     if results[0]:
-                        self.user = dict(name="Person", song_title="Some Song")
+                        self.user = dict(name=user.name, song_title=user.song_title)
                         found = True
                         break
                 if not found:
                     self.create_profile = True
+            else:
+                print('no face')
 
 
 def last_screenshot_widget(last_screenshot: Image.Image | None) -> rx.Component:
@@ -344,10 +368,16 @@ def index() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                # webcam_upload_component("123", State.handle_screenshot),
                 webcam_upload_component("123"),
-                last_screenshot_widget(State.last_screenshot),
             ),
+            rx.button(
+                "Hmmm...",
+                on_click=reflex_webcam.upload_screenshot(
+                    ref="123",
+                    handler=State.handle_screenshot,
+                ),
+            ),
+            align='center',
             justify="center",
             min_height="85vh",
         )
