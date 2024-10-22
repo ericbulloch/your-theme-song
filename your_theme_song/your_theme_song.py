@@ -20,6 +20,7 @@ class User(rx.Model, table=True):
 
 class UserState(rx.State):
     name: str = ""
+    song_artist: str = ""
     song_title: str = ""
     song_url: str = ""
     search: str = ""
@@ -34,6 +35,7 @@ class UserState(rx.State):
         print('Clicked submit')
         print(self.last_screenshot)
         print(self.name)
+        print(self.song_artist)
         print(self.song_title)
         print(self.song_url)
     
@@ -74,19 +76,22 @@ class UserState(rx.State):
         self.state = 'form'
     
     def handle_search(self):
-        print('handle_search', self.search)
         if not self.search:
             return
         with deezer.Client() as client:
             self.search_results = []
-            print('client')
             results = client.search(self.search)
             print('results', results)
             for result in results:
                 self.search_results.append(dict(title=result.title, url=result.preview, artist=result.artist.name))
     
-    def handle_select_song(self):
-        print('Song selected')
+    def handle_select_song(self, song: dict[str, str]):
+        self.search = ''
+        self.song_artist = song['artist']
+        self.song_title = song['title']
+        self.song_url = song['url']
+        self.search_results = []
+        self.state = 'form'
     
     def handle_cancel(self):
         self.state = 'form'
@@ -158,13 +163,18 @@ def webcam_upload_component(ref: str, handler) -> rx.Component:
 
 def render_search_result(item: dict[str, str]):
     return rx.hstack(
+        rx.button(
+            "Select song",
+            on_click=lambda: UserState.handle_select_song(item),
+            background_color="green",
+        ),
         rx.text(item.artist),
         rx.text(item.title),
         rx.audio(
             url=item.url,
             width="150px",
             height="32px",
-        )
+        ),
     )
 
 
@@ -218,9 +228,19 @@ def create() -> rx.Component:
                         rx.text("✓"),
                     ),
                 ),
-                rx.button(
-                    "Pick a song",
-                    on_click=UserState.handle_open_song_form,
+                rx.hstack(
+                    rx.button(
+                        rx.cond(
+                            UserState.song_title,
+                            "Update song",
+                            "Pick a song",
+                        ),
+                        on_click=UserState.handle_open_song_form,
+                    ),
+                    rx.cond(
+                        UserState.song_title,
+                        rx.text(UserState.song_title),
+                    ),
                 ),
                 rx.button(
                     "Submit",
@@ -275,10 +295,6 @@ def create() -> rx.Component:
                 rx.cond(
                     UserState.search_results,
                     render_search_results(UserState.search_results),
-                ),
-                rx.button(
-                    "Select song",
-                    on_click=UserState.handle_select_song,
                 ),
                 rx.button(
                     "Cancel",
