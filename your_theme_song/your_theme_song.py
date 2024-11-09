@@ -1,5 +1,6 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 import glob
+import os
 import time
 from typing import List
 from urllib.request import urlopen
@@ -10,6 +11,7 @@ import face_recognition
 from PIL import Image
 import reflex as rx
 import reflex_webcam
+import requests
 
 
 class User(rx.Model, table=True):
@@ -34,17 +36,37 @@ class UserState(rx.State):
     search_results: List[dict[str, str]] = []
     error_message: str = ""
 
-    def handle_submit(self):
+    def save_image(self):
         image_name = f'{uuid.uuid4().hex}.jpg'
-        image_path = f'images/{image_name}'
-        self.screenshot.save(f'images/{image_name}', 'JPEG')
+        image_path = os.path.join('images', image_name)
+        self.screenshot.save(image_path, 'JPEG')
+        return image_path
+
+    def save_music(self, url):
+        response = requests.get(url)
+        if response.ok:
+            song_name = f'{uuid.uuid4().hex}.mp3'
+            song_path = os.path.join(os.getcwd(), 'music', song_name)
+            with open(song_path, 'wb') as fp:
+                for chunk in response.iter_content(chunk_size=1024 * 8):
+                    if chunk:
+                        fp.write(chunk)
+                        fp.flush()
+                        os.fsync(fp.fileno())
+            return song_name
+        else:
+            raise Exception('Could not download song url {url}')
+
+    def handle_submit(self):
+        image_path = self.save_image()
+        song_path = self.save_music(self.song_url)
         with rx.session() as session:
             session.add(
                 User(
                     name=self.name,
                     song_artist=self.song_artist,
                     song_title=self.song_title,
-                    song_url=self.song_url,
+                    song_url=song_path,
                     screenshot_url=image_path,
                 )
             )
@@ -131,15 +153,21 @@ class State(rx.State):
     loading: bool = False
     user: dict | None = None
     create_profile: bool = False
+    error_message: str = ""
 
     def handle_screenshot(self, img_data_uri: str):
         if self.loading:
             return
         self.create_profile = False
+        self.error_message = ""
+        self.user = None
         with urlopen(img_data_uri) as img:
             self.user = None
             image = face_recognition.load_image_file(img)
             face_locations = face_recognition.face_locations(image)
+            if len(face_locations) > 1:
+                self.error_message = 'Multiple faces detected.'
+                return
             if face_locations:
                 unknown_encoding = face_recognition.face_encodings(image)[0]
                 found = False
@@ -158,6 +186,9 @@ class State(rx.State):
                     self.create_profile = True
             else:
                 print('no face')
+
+    def song_finished(self):
+        self.user = None
 
 
 def last_screenshot_widget(last_screenshot: Image.Image | None) -> rx.Component:
@@ -361,6 +392,10 @@ def index() -> rx.Component:
                     ),
                 ),
             ),
+            rx.cond(
+                State.error_message,
+                render_error_message(State.error_message),
+            ),
             rx.hstack(
                 webcam_upload_component("123"),
             ),
@@ -374,7 +409,8 @@ def index() -> rx.Component:
             rx.cond(
                 State.user,
                 rx.audio(
-                    url=f"{State.user['song_url']} ",
+                    url=f"http://127.0.0.1:5000/music/{State.user['song_url']}",
+                    on_ended=State.song_finished,
                     playing=True,
                     width="1px",
                     height="1px",
