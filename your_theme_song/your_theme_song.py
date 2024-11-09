@@ -101,7 +101,7 @@ class UserState(rx.State):
                 for known_image_path in glob.glob('images/*.jpg'):
                     known_image = face_recognition.load_image_file(known_image_path)
                     known_encoding = face_recognition.face_encodings(known_image)[0]
-                    results = face_recognition.compare_faces([known_encoding], unknown_encoding)
+                    results = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.4)
                     if results[0]:
                         self.error_message = "You already have an account"
                         found = True
@@ -177,7 +177,7 @@ class State(rx.State):
                 for user in users:
                     known_image = face_recognition.load_image_file(user.screenshot_url)
                     known_encoding = face_recognition.face_encodings(known_image)[0]
-                    results = face_recognition.compare_faces([known_encoding], unknown_encoding)
+                    results = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=0.4)
                     if results[0]:
                         self.user = dict(name=user.name, song_title=user.song_title, song_url=user.song_url, song_artist=user.song_artist)
                         found = True
