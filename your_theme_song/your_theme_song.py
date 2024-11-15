@@ -1,4 +1,5 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
+import asyncio
 import glob
 import os
 import time
@@ -154,6 +155,8 @@ class State(rx.State):
     user: dict | None = None
     create_profile: bool = False
     error_message: str = ""
+    background_task_running: bool = False
+    song_playing: bool = False
 
     def handle_screenshot(self, img_data_uri: str):
         if self.loading:
@@ -161,6 +164,8 @@ class State(rx.State):
         self.create_profile = False
         self.error_message = ""
         self.user = None
+        if img_data_uri is None:
+            return
         with urlopen(img_data_uri) as img:
             self.user = None
             image = face_recognition.load_image_file(img)
@@ -187,8 +192,39 @@ class State(rx.State):
             else:
                 print('no face')
 
+    def song_started(self):
+        self.song_playing = True
+
     def song_finished(self):
         self.user = None
+        self.song_playing = False
+
+    def on_unmount(self):
+        self.background_task_running = False
+        self.user = None
+        self.song_playing = False
+
+    @rx.event
+    def toggle_running(self):
+        self.background_task_running = not self.background_task_running
+        if self.background_task_running:
+            return State.background_task
+
+    @rx.event(background=True)
+    async def background_task(self):
+        async with self:
+            if self.background_task_running:
+                return
+
+        while True:
+            async with self:
+                if not self.song_playing:
+                    yield reflex_webcam.upload_screenshot(
+                        ref="123",
+                        handler=State.handle_screenshot,
+                    )
+            await asyncio.sleep(4)
+
 
 
 def last_screenshot_widget(last_screenshot: Image.Image | None) -> rx.Component:
@@ -399,23 +435,18 @@ def index() -> rx.Component:
             rx.hstack(
                 webcam_upload_component("123"),
             ),
-            rx.button(
-                "Test image recognition",
-                on_click=reflex_webcam.upload_screenshot(
-                    ref="123",
-                    handler=State.handle_screenshot,
-                ),
-            ),
             rx.cond(
                 State.user,
                 rx.audio(
                     url=f"http://127.0.0.1:5000/music/{State.user['song_url']}",
+                    on_start=State.song_started,
                     on_ended=State.song_finished,
                     playing=True,
                     width="1px",
                     height="1px",
                 ),
             ),
+            on_unmount=State.on_unmount,
             align='center',
             justify="center",
             min_height="85vh",
@@ -428,5 +459,9 @@ app = rx.App(
         appearance="dark",
     )
 )
-app.add_page(index, route="/")
+app.add_page(
+    index,
+    route="/",
+    on_load=State.background_task
+)
 app.add_page(create, route="/create")
